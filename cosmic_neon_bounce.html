@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cosmic Neon Bounce</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Google Inter / Orbitron -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #050510;
+            color: #fff;
+            overflow: hidden;
+        }
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        /* Neon Glow Utility Classes */
+        .neon-text-cyan {
+            text-shadow: 0 0 5px #00f3ff, 0 0 15px #00f3ff, 0 0 30px #00f3ff;
+        }
+        .neon-text-magenta {
+            text-shadow: 0 0 5px #ff0055, 0 0 15px #ff0055, 0 0 30px #ff0055;
+        }
+        .neon-border-cyan {
+            box-shadow: 0 0 10px #00f3ff, inset 0 0 10px #00f3ff;
+            border-color: #00f3ff;
+        }
+        .neon-border-magenta {
+            box-shadow: 0 0 10px #ff0055, inset 0 0 10px #ff0055;
+            border-color: #ff0055;
+        }
+        .neon-btn {
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .neon-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+        }
+        .neon-btn:active {
+            transform: translateY(1px);
+        }
+        /* Custom Scrollbar for Shop & Menus */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 15, 30, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00f3ff;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-center items-center relative overflow-hidden bg-slate-950">
+
+    <!-- Canvas for Game World -->
+    <div class="relative w-full h-full max-w-4xl max-h-[900px] flex items-center justify-center p-0 md:p-4">
+        <canvas id="gameCanvas" class="w-full h-full block rounded-none md:rounded-2xl border-0 md:border-2 border-cyan-500/30 bg-black shadow-2xl"></canvas>
+
+        <!-- HUD Layer Overlay -->
+        <div id="hudOverlay" class="absolute inset-0 pointer-events-none p-4 md:p-6 flex flex-col justify-between hidden">
+            <!-- Top HUD Bar -->
+            <div class="flex justify-between items-start">
+                <!-- Score & Multiplier -->
+                <div class="flex flex-col">
+                    <div class="text-xs uppercase tracking-widest text-cyan-400 font-orbitron">Score</div>
+                    <div id="hudScore" class="text-3xl md:text-5xl font-black font-orbitron text-white neon-text-cyan">0</div>
+                    <div id="hudMultiplier" class="text-xs md:text-sm font-bold text-yellow-400 font-orbitron opacity-0 transition-opacity">MULTIPLIER x2</div>
+                </div>
+
+                <!-- Boss HP Bar (Hidden by Default) -->
+                <div id="bossHpContainer" class="hidden flex-1 max-w-xs mx-4 flex flex-col items-center">
+                    <div class="text-xs font-orbitron text-red-500 font-bold mb-1 tracking-wider uppercase flex items-center gap-1">
+                        <i class="fa-solid font-bold fa-skull"></i> Cosmic Titan Boss
+                    </div>
+                    <div class="w-full bg-slate-800 h-3 rounded-full border border-red-500/50 overflow-hidden">
+                        <div id="bossHpBar" class="bg-gradient-to-r from-red-600 to-pink-500 h-full w-full transition-all duration-100"></div>
+                    </div>
+                </div>
+
+                <!-- Stats & Gems -->
+                <div class="flex flex-col items-end gap-1">
+                    <div class="flex items-center gap-2 bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-full border border-amber-500/40">
+                        <i class="fa-solid fa-gem text-amber-400 text-sm"></i>
+                        <span id="hudGems" class="font-orbitron font-bold text-amber-300 text-sm md:text-base">0</span>
+                    </div>
+                    <button id="pauseBtn" class="pointer-events-auto mt-2 w-10 h-10 rounded-full bg-slate-900/80 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-black flex items-center justify-center transition">
+                        <i class="fa-solid fa-pause"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Powerups Indicator Bar -->
+            <div id="powerupBar" class="flex gap-2 justify-center my-auto pointer-events-none"></div>
+
+            <!-- Bottom Control Hints for Mobile Touch -->
+            <div class="flex justify-between items-end text-xs font-orbitron text-slate-400/80">
+                <div class="hidden sm:block">A/D or ◄/► to Move | SPACE to Boost</div>
+                <div id="touchControlsHint" class="sm:hidden text-center w-full pb-2 text-cyan-400/80 animate-pulse">
+                    Tap Left/Right to Move • Tap Both to Dash
+                </div>
+            </div>
+        </div>
+
+        <!-- UI Screen: Main Menu -->
+        <div id="mainMenuScreen" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-6 z-20">
+            <!-- Title -->
+            <div class="text-center mt-8">
+                <div class="inline-block px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-full text-cyan-400 font-orbitron text-xs tracking-widest mb-2 uppercase">
+                    Arcade Sci-Fi Action
+                </div>
+                <h1 class="text-4xl md:text-7xl font-black font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-yellow-400 neon-text-cyan tracking-wider">
+                    COSMIC NEON<br/>BOUNCE
+                </h1>
+                <p class="text-slate-400 mt-2 text-sm md:text-base max-w-md">Bounce off neon energy pads, collect gems, execute dashing combos, and survive cosmic anomalies!</p>
+            </div>
+
+            <!-- Central Buttons -->
+            <div class="flex flex-col gap-4 w-full max-w-xs my-auto">
+                <button id="startPlayBtn" class="neon-btn w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-orbitron font-black text-xl tracking-wider uppercase shadow-lg shadow-cyan-500/30 flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-play"></i> Launch Run
+                </button>
+                <button id="openShopBtn" class="neon-btn w-full py-3 rounded-xl bg-slate-900 border border-purple-500/50 text-purple-300 font-orbitron font-bold hover:bg-purple-950/50 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-store"></i> Cyber Shop & Skins
+                </button>
+                <button id="openLeaderboardBtn" class="neon-btn w-full py-3 rounded-xl bg-slate-900 border border-amber-500/50 text-amber-300 font-orbitron font-bold hover:bg-amber-950/50 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-trophy"></i> High Scores & Stats
+                </button>
+            </div>
+
+            <!-- Footer Quick Audio Control & Daily Quest -->
+            <div class="w-full max-w-md flex justify-between items-center bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-xs">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-check text-cyan-400 text-sm"></i>
+                    <div>
+                        <div class="font-orbitron font-bold text-slate-200">Daily Objective</div>
+                        <div id="dailyChallengeText" class="text-slate-400 text-[11px]">Collect 50 gems in 1 run</div>
+                    </div>
+                </div>
+                <button id="toggleAudioBtn" class="p-2 rounded-lg bg-slate-800 text-cyan-400 hover:text-white border border-slate-700">
+                    <i id="audioIcon" class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- UI Screen: Shop / Upgrades -->
+        <div id="shopScreen" class="absolute inset-0 bg-slate-950/95 backdrop-blur-lg flex flex-col p-6 z-30 hidden">
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-store text-2xl text-purple-400"></i>
+                    <h2 class="text-2xl font-orbitron font-bold text-white">CYBER SHOP</h2>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-full border border-amber-500/40">
+                    <i class="fa-solid fa-gem text-amber-400"></i>
+                    <span id="shopGemsCount" class="font-orbitron font-bold text-amber-300">0</span>
+                </div>
+            </div>
+
+            <!-- Shop Tabs -->
+            <div class="flex border-b border-slate-800 mb-4 gap-4">
+                <button id="tabUpgradesBtn" class="pb-2 font-orbitron text-sm font-bold border-b-2 border-cyan-400 text-cyan-400">UPGRADES</button>
+                <button id="tabSkinsBtn" class="pb-2 font-orbitron text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200">SKINS</button>
+            </div>
+
+            <!-- Tab Content: Upgrades -->
+            <div id="tabUpgradesContent" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                <!-- Upgrade Item Magnet -->
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-cyan-950 border border-cyan-500/40 flex items-center justify-center text-cyan-400 text-lg">
+                            <i class="fa-solid fa-magnet"></i>
+                        </div>
+                        <div>
+                            <div class="font-orbitron font-bold text-sm text-slate-200">Gem Magnet Radius</div>
+                            <div class="text-xs text-slate-400">Attract nearby gems effortlessly</div>
+                            <div id="magnetLvlText" class="text-[11px] text-cyan-400 font-orbitron mt-0.5">Lvl 1/5</div>
+                        </div>
+                    </div>
+                    <button id="buyMagnetBtn" class="px-4 py-2 bg-cyan-500 text-black font-orbitron font-bold text-xs rounded-lg hover:bg-cyan-400 transition flex items-center gap-1">
+                        <i class="fa-solid fa-gem"></i> <span id="magnetCost">100</span>
+                    </button>
+                </div>
+
+                <!-- Upgrade Item Shield -->
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-blue-950 border border-blue-500/40 flex items-center justify-center text-blue-400 text-lg">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                        <div>
+                            <div class="font-orbitron font-bold text-sm text-slate-200">Shield Duration</div>
+                            <div class="text-xs text-slate-400">Invincibility powerup lasts longer</div>
+                            <div id="shieldLvlText" class="text-[11px] text-blue-400 font-orbitron mt-0.5">Lvl 1/5</div>
+                        </div>
+                    </div>
+                    <button id="buyShieldBtn" class="px-4 py-2 bg-cyan-500 text-black font-orbitron font-bold text-xs rounded-lg hover:bg-cyan-400 transition flex items-center gap-1">
+                        <i class="fa-solid fa-gem"></i> <span id="shieldCost">150</span>
+                    </button>
+                </div>
+
+                <!-- Upgrade Item Dash Boost -->
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-pink-950 border border-pink-500/40 flex items-center justify-center text-pink-400 text-lg">
+                            <i class="fa-solid fa-bolt"></i>
+                        </div>
+                        <div>
+                            <div class="font-orbitron font-bold text-sm text-slate-200">Dash Charge Speed</div>
+                            <div class="text-xs text-slate-400">Recharge energy boost faster</div>
+                            <div id="dashLvlText" class="text-[11px] text-pink-400 font-orbitron mt-0.5">Lvl 1/5</div>
+                        </div>
+                    </div>
+                    <button id="buyDashBtn" class="px-4 py-2 bg-cyan-500 text-black font-orbitron font-bold text-xs rounded-lg hover:bg-cyan-400 transition flex items-center gap-1">
+                        <i class="fa-solid fa-gem"></i> <span id="dashCost">200</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab Content: Skins (Hidden by default) -->
+            <div id="tabSkinsContent" class="flex-1 overflow-y-auto grid grid-cols-2 gap-3 pr-1 hidden">
+                <!-- Skin Item Neon Sphere -->
+                <div class="bg-slate-900 p-3 rounded-xl border border-cyan-500/50 flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-full border-2 border-cyan-400 shadow-[0_0_10px_#00f3ff] bg-cyan-950 flex items-center justify-center mb-2">
+                        <div class="w-4 h-4 rounded-full bg-cyan-300"></div>
+                    </div>
+                    <div class="font-orbitron font-bold text-xs text-white">Neon Cyber</div>
+                    <div class="text-[10px] text-slate-400 mb-2">Default Sphere</div>
+                    <button id="skinCyberBtn" class="mt-auto w-full py-1.5 bg-slate-800 text-cyan-400 font-orbitron text-xs font-bold rounded">EQUIPPED</button>
+                </div>
+
+                <!-- Skin Item Crimson Flare -->
+                <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-full border-2 border-red-500 shadow-[0_0_10px_#ff0055] bg-red-950 flex items-center justify-center mb-2">
+                        <div class="w-4 h-4 rounded-full bg-red-400"></div>
+                    </div>
+                    <div class="font-orbitron font-bold text-xs text-white">Crimson Flare</div>
+                    <div class="text-[10px] text-slate-400 mb-2">Fiery aura trail</div>
+                    <button id="skinCrimsonBtn" class="mt-auto w-full py-1.5 bg-cyan-500 text-black font-orbitron text-xs font-bold rounded hover:bg-cyan-400">BUY (300 <i class="fa-solid fa-gem"></i>)</button>
+                </div>
+
+                <!-- Skin Item Golden Sun -->
+                <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-full border-2 border-amber-400 shadow-[0_0_10px_#fbbf24] bg-amber-950 flex items-center justify-center mb-2">
+                        <div class="w-4 h-4 rounded-full bg-amber-200"></div>
+                    </div>
+                    <div class="font-orbitron font-bold text-xs text-white">Solar Core</div>
+                    <div class="text-[10px] text-slate-400 mb-2">Radiant sparkles</div>
+                    <button id="skinSolarBtn" class="mt-auto w-full py-1.5 bg-cyan-500 text-black font-orbitron text-xs font-bold rounded hover:bg-cyan-400">BUY (500 <i class="fa-solid fa-gem"></i>)</button>
+                </div>
+            </div>
+
+            <!-- Close Shop Button -->
+            <button id="closeShopBtn" class="mt-4 w-full py-3 bg-slate-800 hover:bg-slate-700 font-orbitron font-bold text-sm text-slate-300 rounded-xl">
+                RETURN TO MAIN MENU
+            </button>
+        </div>
+
+        <!-- UI Screen: Game Over -->
+        <div id="gameOverScreen" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-30 hidden">
+            <div class="text-center mb-6">
+                <div class="text-red-500 font-orbitron text-sm tracking-widest font-bold uppercase mb-1">Run Terminated</div>
+                <h2 class="text-4xl md:text-6xl font-black font-orbitron text-white neon-text-magenta">GAME OVER</h2>
+            </div>
+
+            <div class="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 w-full max-w-sm mb-6 flex flex-col gap-3 font-orbitron">
+                <div class="flex justify-between items-center text-sm border-b border-slate-800 pb-2">
+                    <span class="text-slate-400">FINAL SCORE</span>
+                    <span id="goScoreText" class="text-2xl font-bold text-cyan-400">0</span>
+                </div>
+                <div class="flex justify-between items-center text-sm border-b border-slate-800 pb-2">
+                    <span class="text-slate-400">HIGH SCORE</span>
+                    <span id="goHighScoreText" class="text-xl font-bold text-yellow-400">0</span>
+                </div>
+                <div class="flex justify-between items-center text-sm border-b border-slate-800 pb-2">
+                    <span class="text-slate-400">GEMS COLLECTED</span>
+                    <span id="goGemsText" class="text-lg font-bold text-amber-400">0</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">MAX COMBO</span>
+                    <span id="goComboText" class="text-lg font-bold text-pink-400">0x</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-3 w-full max-w-xs">
+                <button id="restartBtn" class="neon-btn w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-orbitron font-black text-lg tracking-wider uppercase shadow-lg shadow-cyan-500/30 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> Play Again
+                </button>
+                <button id="goMenuBtn" class="w-full py-3 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 font-orbitron font-bold hover:bg-slate-800">
+                    Main Menu
+                </button>
+            </div>
+        </div>
+
+        <!-- UI Screen: Pause -->
+        <div id="pauseScreen" class="absolute inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 z-30 hidden">
+            <h2 class="text-4xl font-black font-orbitron text-white neon-text-cyan mb-6">GAME PAUSED</h2>
+            <div class="flex flex-col gap-4 w-full max-w-xs">
+                <button id="resumeBtn" class="neon-btn w-full py-4 rounded-xl bg-cyan-500 text-black font-orbitron font-black text-lg tracking-wider uppercase">
+                    Resume
+                </button>
+                <button id="pauseQuitBtn" class="w-full py-3 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 font-orbitron font-bold hover:bg-slate-800">
+                    Quit to Menu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Game Logic -->
+    <script>
+        /* --- AUDIO SYNTHESIZER (WEB AUDIO API) --- */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playBounce() {
+                if (this.muted || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(450, this.ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playGem() {
+                if (this.muted || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(587.33, this.ctx.currentTime); // D5
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.08); // A5
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            playDash() {
+                if (this.muted || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playPowerup() {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(900, now + 0.3);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.35);
+            }
+
+            playExplosion() {
+                if (this.muted || !this.ctx) return;
+                // Noise buffer creation for explosion sound effect
+                const bufferSize = this.ctx.sampleRate * 0.4;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                const whiteNoise = this.ctx.createBufferSource();
+                whiteNoise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(800, this.ctx.currentTime);
+                filter.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.4);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+
+                whiteNoise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                whiteNoise.start();
+                whiteNoise.stop(this.ctx.currentTime + 0.4);
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        /* --- GAME ENGINE & STATE MANAGEMENT --- */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game Constants & State Variables
+        let gameState = 'MENU'; // MENU, PLAYING, PAUSED, GAMEOVER
+        let score = 0;
+        let gemsCollected = 0;
+        let totalGems = parseInt(localStorage.getItem('cnb_gems') || '0');
+        let highScore = parseInt(localStorage.getItem('cnb_highscore') || '0');
+        let maxCombo = 0;
+        let combo = 0;
+        let screenShakeTime = 0;
+
+        // Player Upgrades Saved Data
+        let upgrades = JSON.parse(localStorage.getItem('cnb_upgrades') || '{"magnet":1,"shield":1,"dash":1}');
+        let activeSkin = localStorage.getItem('cnb_skin') || 'cyber';
+
+        // Responsive Resizing
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        /* --- ENTITIES --- */
+        class Player {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.radius = 18;
+                this.x = canvas.width / 2;
+                this.y = canvas.height - 120;
+                this.vx = 0;
+                this.vy = 0;
+                this.speed = 0.8;
+                this.friction = 0.92;
+                this.bounceForce = -14;
+                this.gravity = 0.42;
+                this.dashCooldown = 0;
+                this.shieldActive = false;
+                this.shieldTimer = 0;
+                this.magnetActive = false;
+                this.magnetTimer = 0;
+                this.color = '#00f3ff';
+                this.trail = [];
+            }
+
+            update() {
+                // Horizontal Movement Input Processing
+                if (keys['ArrowLeft'] || keys['KeyA'] || touchLeft) {
+                    this.vx -= this.speed;
+                }
+                if (keys['ArrowRight'] || keys['KeyD'] || touchRight) {
+                    this.vx += this.speed;
+                }
+
+                // Dash / Boost logic
+                if ((keys['Space'] || touchBoth) && this.dashCooldown <= 0) {
+                    this.vy = -16;
+                    this.dashCooldown = Math.max(60, 180 - upgrades.dash * 20);
+                    audio.playDash();
+                    createBurstParticles(this.x, this.y, '#ff0055', 20);
+                    triggerScreenShake(8);
+                }
+
+                if (this.dashCooldown > 0) this.dashCooldown--;
+
+                // Physics Velocity Update
+                this.vx *= this.friction;
+                this.vy += this.gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Screen Boundaries
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx *= -0.5;
+                }
+                if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    this.vx *= -0.5;
+                }
+
+                // Trail Effect Recording
+                this.trail.push({ x: this.x, y: this.y, alpha: 1 });
+                if (this.trail.length > 12) this.trail.shift();
+                this.trail.forEach(t => t.alpha -= 0.08);
+
+                // Timers
+                if (this.shieldTimer > 0) {
+                    this.shieldTimer--;
+                    if (this.shieldTimer <= 0) this.shieldActive = false;
+                }
+                if (this.magnetTimer > 0) {
+                    this.magnetTimer--;
+                    if (this.magnetTimer <= 0) this.magnetActive = false;
+                }
+            }
+
+            draw() {
+                // Draw Motion Trail
+                this.trail.forEach((t, index) => {
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, this.radius * (index / this.trail.length), 0, Math.PI * 2);
+                    ctx.fillStyle = activeSkin === 'crimson' ? `rgba(255, 0, 85, ${Math.max(0, t.alpha)})` :
+                                    activeSkin === 'solar' ? `rgba(251, 191, 36, ${Math.max(0, t.alpha)})` :
+                                    `rgba(0, 243, 255, ${Math.max(0, t.alpha)})`;
+                    ctx.fill();
+                });
+
+                // Draw Magnet Aura if Active
+                if (this.magnetActive) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 80 + upgrades.magnet * 25, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(168, 85, 247, 0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 6]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Draw Shield Glow if Active
+                if (this.shieldActive) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius + 8, 0, Math.PI * 2);
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = '#3b82f6';
+                    ctx.shadowBlur = 15;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+
+                // Main Ball Core
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                const themeColor = activeSkin === 'crimson' ? '#ff0055' : activeSkin === 'solar' ? '#fbbf24' : '#00f3ff';
+                ctx.fillStyle = themeColor;
+                ctx.shadowColor = themeColor;
+                ctx.shadowBlur = 18;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Inner Specular Reflection Dot
+                ctx.beginPath();
+                ctx.arc(this.x - 5, this.y - 5, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+            }
+        }
+
+        class Platform {
+            constructor(x, y, width, type = 'NORMAL') {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = 14;
+                this.type = type; // NORMAL, MOVING, DISAPPEARING, BOOST
+                this.vx = type === 'MOVING' ? (Math.random() > 0.5 ? 2 : -2) : 0;
+                this.broken = false;
+            }
+
+            update() {
+                if (this.type === 'MOVING') {
+                    this.x += this.vx;
+                    if (this.x <= 10 || this.x + this.width >= canvas.width - 10) {
+                        this.vx *= -1;
+                    }
+                }
+            }
+
+            draw() {
+                if (this.broken) return;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(this.x, this.y, this.width, this.height, 7);
+
+                let color = '#00f3ff';
+                if (this.type === 'MOVING') color = '#eab308';
+                if (this.type === 'DISAPPEARING') color = '#a855f7';
+                if (this.type === 'BOOST') color = '#ff0055';
+
+                ctx.fillStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 12;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Gem {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 8;
+                this.collected = false;
+                this.pulse = 0;
+            }
+
+            update(player) {
+                this.pulse += 0.05;
+
+                // Magnet Attract Logic
+                const magnetDist = 80 + upgrades.magnet * 25;
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const dist = Math.hypot(dx, dy);
+
+                if ((player.magnetActive || dist < magnetDist) && dist < magnetDist) {
+                    this.x += (dx / dist) * 6;
+                    this.y += (dy / dist) * 6;
+                }
+            }
+
+            draw() {
+                if (this.collected) return;
+                ctx.save();
+                ctx.translate(this.x, this.y + Math.sin(this.pulse) * 3);
+                ctx.beginPath();
+                ctx.moveTo(0, -this.radius);
+                ctx.lineTo(this.radius, 0);
+                ctx.lineTo(0, this.radius);
+                ctx.lineTo(-this.radius, 0);
+                ctx.closePath();
+
+                ctx.fillStyle = '#fbbf24';
+                ctx.shadowColor = '#fbbf24';
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Obstacle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 14;
+                this.angle = 0;
+            }
+
+            update() {
+                this.angle += 0.04;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    ctx.lineTo(Math.cos((1 + i * 2) * Math.PI / 5) * this.radius, Math.sin((1 + i * 2) * Math.PI / 5) * this.radius);
+                }
+                ctx.closePath();
+                ctx.fillStyle = '#ef4444';
+                ctx.shadowColor = '#ef4444';
+                ctx.shadowBlur = 12;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Powerup {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type; // MAGNET, SHIELD
+                this.radius = 12;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.type === 'SHIELD' ? '#3b82f6' : '#a855f7';
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.shadowBlur = 10;
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '10px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type === 'SHIELD' ? 'S' : 'M', this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        class Boss {
+            constructor() {
+                this.x = canvas.width / 2;
+                this.y = -80;
+                this.targetY = 100;
+                this.width = 120;
+                this.height = 40;
+                this.hp = 100;
+                this.maxHp = 100;
+                this.active = false;
+                this.vx = 3;
+            }
+
+            update() {
+                if (!this.active) return;
+                if (this.y < this.targetY) this.y += 2;
+
+                this.x += this.vx;
+                if (this.x - this.width / 2 < 20 || this.x + this.width / 2 > canvas.width - 20) {
+                    this.vx *= -1;
+                }
+            }
+
+            draw() {
+                if (!this.active) return;
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(this.x - this.width / 2, this.y, this.width, this.height, 10);
+                ctx.fillStyle = '#dc2626';
+                ctx.shadowColor = '#ef4444';
+                ctx.shadowBlur = 20;
+                ctx.fill();
+
+                // Eyes
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(this.x - 30, this.y + 12, 16, 8);
+                ctx.fillRect(this.x + 14, this.y + 12, 16, 8);
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8;
+                this.size = Math.random() * 4 + 2;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.015;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 6;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.alpha = 1;
+                this.vy = -1.5;
+            }
+
+            update() {
+                this.y += this.vy;
+                this.alpha -= 0.02;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.font = 'bold 16px Orbitron';
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 8;
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        /* --- GLOBAL INSTANCES --- */
+        const player = new Player();
+        const boss = new Boss();
+        let platforms = [];
+        let gems = [];
+        let obstacles = [];
+        let powerups = [];
+        let particles = [];
+        let floatingTexts = [];
+
+        // Input state trackers
+        const keys = {};
+        let touchLeft = false;
+        let touchRight = false;
+        let touchBoth = false;
+
+        /* --- LEVEL GENERATION & WORLD SCROLLING --- */
+        function initWorld() {
+            platforms = [];
+            gems = [];
+            obstacles = [];
+            powerups = [];
+            particles = [];
+            floatingTexts = [];
+
+            // Base ground platform
+            platforms.push(new Platform(canvas.width / 2 - 100, canvas.height - 50, 200, 'NORMAL'));
+
+            // Generate initial vertical platforms
+            for (let y = canvas.height - 150; y > 0; y -= 80) {
+                spawnPlatformRow(y);
+            }
+        }
+
+        function spawnPlatformRow(y) {
+            const width = Math.random() * 40 + 70;
+            const x = Math.random() * (canvas.width - width - 40) + 20;
+
+            let type = 'NORMAL';
+            const rand = Math.random();
+            if (rand > 0.8) type = 'MOVING';
+            else if (rand > 0.65) type = 'DISAPPEARING';
+            else if (rand > 0.55) type = 'BOOST';
+
+            platforms.push(new Platform(x, y, width, type));
+
+            // Random Gems Spawn
+            if (Math.random() > 0.4) {
+                gems.push(new Gem(x + width / 2, y - 25));
+            }
+
+            // Random Obstacle Spawn
+            if (Math.random() > 0.75 && type !== 'BOOST') {
+                obstacles.push(new Obstacle(x + (Math.random() > 0.5 ? -20 : width + 20), y - 40));
+            }
+
+            // Random Powerup Spawn
+            if (Math.random() > 0.88) {
+                powerups.push(new Powerup(x + width / 2, y - 30, Math.random() > 0.5 ? 'SHIELD' : 'MAGNET'));
+            }
+        }
+
+        function scrollWorld(dy) {
+            platforms.forEach(p => p.y += dy);
+            gems.forEach(g => g.y += dy);
+            obstacles.forEach(o => o.y += dy);
+            powerups.forEach(pw => pw.y += dy);
+
+            // Clean up off-screen entities bottom
+            platforms = platforms.filter(p => p.y < canvas.height + 50);
+            gems = gems.filter(g => g.y < canvas.height + 50);
+            obstacles = obstacles.filter(o => o.y < canvas.height + 50);
+            powerups = powerups.filter(pw => pw.y < canvas.height + 50);
+
+            // Spawn new topmost platforms as player moves up
+            const highestPlatform = Math.min(...platforms.map(p => p.y), canvas.height);
+            if (highestPlatform > 80) {
+                spawnPlatformRow(highestPlatform - 80);
+            }
+        }
+
+        /* --- VISUAL EFFECTS HELPERS --- */
+        function createBurstParticles(x, y, color, count = 12) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function addFloatingText(x, y, text, color = '#00f3ff') {
+            floatingTexts.push(new FloatingText(x, y, text, color));
+        }
+
+        function triggerScreenShake(duration = 10) {
+            screenShakeTime = duration;
+        }
+
+        /* --- GAME LOOP & UPDATES --- */
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Apply Screen Shake Camera Offset
+            ctx.save();
+            if (screenShakeTime > 0) {
+                const dx = (Math.random() - 0.5) * 8;
+                const dy = (Math.random() - 0.5) * 8;
+                ctx.translate(dx, dy);
+                screenShakeTime--;
+            }
+
+            if (gameState === 'PLAYING') {
+                updatePhysics();
+            }
+
+            // Render World
+            drawBackground();
+            platforms.forEach(p => p.draw());
+            gems.forEach(g => g.draw());
+            obstacles.forEach(o => o.draw());
+            powerups.forEach(pw => pw.draw());
+            boss.draw();
+            if (gameState === 'PLAYING' || gameState === 'PAUSED') player.draw();
+
+            particles.forEach(p => p.draw());
+            floatingTexts.forEach(ft => ft.draw());
+
+            ctx.restore();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updatePhysics() {
+            player.update();
+            boss.update();
+
+            // Camera Vertical Scroll Logic when player reaches upper half of screen
+            if (player.y < canvas.height * 0.45) {
+                const diff = canvas.height * 0.45 - player.y;
+                player.y = canvas.height * 0.45;
+                scrollWorld(diff);
+                score += Math.floor(diff);
+                document.getElementById('hudScore').innerText = score;
+            }
+
+            // Platform Collision Detection
+            if (player.vy > 0) {
+                platforms.forEach(p => {
+                    if (!p.broken &&
+                        player.x + player.radius > p.x &&
+                        player.x - player.radius < p.x + p.width &&
+                        player.y + player.radius >= p.y &&
+                        player.y - player.radius <= p.y + p.height) {
+
+                        player.y = p.y - player.radius;
+                        player.vy = p.type === 'BOOST' ? player.bounceForce * 1.5 : player.bounceForce;
+
+                        audio.playBounce();
+                        createBurstParticles(player.x, player.y + player.radius, '#00f3ff', 8);
+
+                        if (p.type === 'DISAPPEARING') {
+                            p.broken = true;
+                            createBurstParticles(p.x + p.width / 2, p.y, '#a855f7', 12);
+                        }
+                    }
+                });
+            }
+
+            // Platforms update
+            platforms.forEach(p => p.update());
+
+            // Gem Pickups Collision
+            gems.forEach(g => {
+                if (!g.collected) {
+                    g.update(player);
+                    const dist = Math.hypot(player.x - g.x, player.y - g.y);
+                    if (dist < player.radius + g.radius) {
+                        g.collected = true;
+                        gemsCollected++;
+                        totalGems++;
+                        combo++;
+                        if (combo > maxCombo) maxCombo = combo;
+
+                        score += 50 * (combo > 5 ? 2 : 1);
+                        audio.playGem();
+                        createBurstParticles(g.x, g.y, '#fbbf24', 10);
+                        addFloatingText(g.x, g.y, `+50 ${combo > 1 ? `x${combo}` : ''}`, '#fbbf24');
+
+                        document.getElementById('hudGems').innerText = gemsCollected;
+                        localStorage.setItem('cnb_gems', totalGems);
+                    }
+                }
+            });
+
+            // Obstacle Hits Collision
+            obstacles.forEach(o => {
+                o.update();
+                const dist = Math.hypot(player.x - o.x, player.y - o.y);
+                if (dist < player.radius + o.radius) {
+                    if (player.shieldActive) {
+                        // Destroy obstacle with shield
+                        createBurstParticles(o.x, o.y, '#3b82f6', 15);
+                        o.y = canvas.height + 200; // Move offscreen
+                        audio.playExplosion();
+                    } else {
+                        // Game Over Collision
+                        triggerGameOver();
+                    }
+                }
+            });
+
+            // Powerup Pickups
+            powerups.forEach(pw => {
+                const dist = Math.hypot(player.x - pw.x, player.y - pw.y);
+                if (dist < player.radius + pw.radius) {
+                    pw.y = canvas.height + 200;
+                    audio.playPowerup();
+                    if (pw.type === 'SHIELD') {
+                        player.shieldActive = true;
+                        player.shieldTimer = 300 + upgrades.shield * 100;
+                        addFloatingText(player.x, player.y, 'SHIELD ACTIVE!', '#3b82f6');
+                    } else if (pw.type === 'MAGNET') {
+                        player.magnetActive = true;
+                        player.magnetTimer = 300 + upgrades.magnet * 100;
+                        addFloatingText(player.x, player.y, 'MAGNET ACTIVE!', '#a855f7');
+                    }
+                }
+            });
+
+            // Boss Trigger at High Score Threshold
+            if (score > 1500 && !boss.active && Math.random() < 0.002) {
+                boss.active = true;
+                boss.hp = boss.maxHp;
+                document.getElementById('bossHpContainer').classList.remove('hidden');
+            }
+
+            // Boss Player Collision/Damage
+            if (boss.active) {
+                const dist = Math.hypot(player.x - boss.x, player.y - boss.y);
+                if (dist < player.radius + boss.width / 2) {
+                    if (player.vy < 0) { // Player bouncing into boss from below
+                        boss.hp -= 20;
+                        player.vy = 10;
+                        audio.playExplosion();
+                        triggerScreenShake(10);
+                        createBurstParticles(player.x, player.y, '#ef4444', 15);
+                        document.getElementById('bossHpBar').style.width = `${(boss.hp / boss.maxHp) * 100}%`;
+
+                        if (boss.hp <= 0) {
+                            boss.active = false;
+                            score += 1000;
+                            addFloatingText(boss.x, boss.y, 'BOSS DEFEATED! +1000', '#ef4444');
+                            document.getElementById('bossHpContainer').classList.add('hidden');
+                        }
+                    } else if (!player.shieldActive) {
+                        triggerGameOver();
+                    }
+                }
+            }
+
+            // Bottom Death Pit Boundary Fall
+            if (player.y - player.radius > canvas.height) {
+                triggerGameOver();
+            }
+
+            // Update Particles & Floating Text Objects
+            particles.forEach(p => p.update());
+            particles = particles.filter(p => p.alpha > 0);
+
+            floatingTexts.forEach(ft => ft.update());
+            floatingTexts = floatingTexts.filter(ft => ft.alpha > 0);
+        }
+
+        function drawBackground() {
+            // Neon Grid Background Effect
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.04)';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        /* --- GAME CONTROL FUNCTIONS --- */
+        function startGame() {
+            audio.init();
+            score = 0;
+            gemsCollected = 0;
+            combo = 0;
+            maxCombo = 0;
+            gameState = 'PLAYING';
+
+            document.getElementById('hudScore').innerText = '0';
+            document.getElementById('hudGems').innerText = '0';
+
+            player.reset();
+            boss.active = false;
+            document.getElementById('bossHpContainer').classList.add('hidden');
+
+            initWorld();
+
+            // UI Screen Switching
+            document.getElementById('mainMenuScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('shopScreen').classList.add('hidden');
+            document.getElementById('pauseScreen').classList.add('hidden');
+            document.getElementById('hudOverlay').classList.remove('hidden');
+        }
+
+        function triggerGameOver() {
+            audio.playExplosion();
+            gameState = 'GAMEOVER';
+            triggerScreenShake(20);
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('cnb_highscore', highScore);
+            }
+
+            document.getElementById('goScoreText').innerText = score;
+            document.getElementById('goHighScoreText').innerText = highScore;
+            document.getElementById('goGemsText').innerText = gemsCollected;
+            document.getElementById('goComboText').innerText = `${maxCombo}x`;
+
+            document.getElementById('hudOverlay').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+        }
+
+        /* --- INPUT EVENT LISTENERS (KEYBOARD & TOUCH) --- */
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if (e.code === 'KeyP' || e.code === 'Escape') {
+                togglePause();
+            }
+        });
+
+        window.addEventListener('keyup', e => {
+            keys[e.code] = false;
+        });
+
+        // Touch Control Regions for Mobile Screen
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const touchX = e.touches[0].clientX;
+            const screenWidth = window.innerWidth;
+
+            if (e.touches.length >= 2) {
+                touchBoth = true;
+                touchLeft = false;
+                touchRight = false;
+            } else if (touchX < screenWidth / 2) {
+                touchLeft = true;
+                touchRight = false;
+                touchBoth = false;
+            } else {
+                touchRight = true;
+                touchLeft = false;
+                touchBoth = false;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            if (e.touches.length === 0) {
+                touchLeft = false;
+                touchRight = false;
+                touchBoth = false;
+            }
+        }, { passive: false });
+
+        /* --- UI BUTTON HANDLERS --- */
+        document.getElementById('startPlayBtn').onclick = startGame;
+        document.getElementById('restartBtn').onclick = startGame;
+
+        document.getElementById('goMenuBtn').onclick = () => {
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('mainMenuScreen').classList.remove('hidden');
+            gameState = 'MENU';
+        };
+
+        document.getElementById('pauseBtn').onclick = togglePause;
+        document.getElementById('resumeBtn').onclick = togglePause;
+
+        document.getElementById('pauseQuitBtn').onclick = () => {
+            document.getElementById('pauseScreen').classList.add('hidden');
+            document.getElementById('mainMenuScreen').classList.remove('hidden');
+            document.getElementById('hudOverlay').classList.add('hidden');
+            gameState = 'MENU';
+        };
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                document.getElementById('pauseScreen').classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                document.getElementById('pauseScreen').classList.add('hidden');
+            }
+        }
+
+        // Shop Navigation & Upgrades
+        document.getElementById('openShopBtn').onclick = () => {
+            updateShopUI();
+            document.getElementById('mainMenuScreen').classList.add('hidden');
+            document.getElementById('shopScreen').classList.remove('hidden');
+        };
+
+        document.getElementById('closeShopBtn').onclick = () => {
+            document.getElementById('shopScreen').classList.add('hidden');
+            document.getElementById('mainMenuScreen').classList.remove('hidden');
+        };
+
+        document.getElementById('tabUpgradesBtn').onclick = () => {
+            document.getElementById('tabUpgradesContent').classList.remove('hidden');
+            document.getElementById('tabSkinsContent').classList.add('hidden');
+            document.getElementById('tabUpgradesBtn').classList.add('border-cyan-400', 'text-cyan-400');
+            document.getElementById('tabSkinsBtn').classList.remove('border-cyan-400', 'text-cyan-400');
+        };
+
+        document.getElementById('tabSkinsBtn').onclick = () => {
+            document.getElementById('tabSkinsContent').classList.remove('hidden');
+            document.getElementById('tabUpgradesContent').classList.add('hidden');
+            document.getElementById('tabSkinsBtn').classList.add('border-cyan-400', 'text-cyan-400');
+            document.getElementById('tabUpgradesBtn').classList.remove('border-cyan-400', 'text-cyan-400');
+        };
+
+        function updateShopUI() {
+            document.getElementById('shopGemsCount').innerText = totalGems;
+            document.getElementById('magnetLvlText').innerText = `Lvl ${upgrades.magnet}/5`;
+            document.getElementById('shieldLvlText').innerText = `Lvl ${upgrades.shield}/5`;
+            document.getElementById('dashLvlText').innerText = `Lvl ${upgrades.dash}/5`;
+        }
+
+        // Upgrade Purchasing
+        document.getElementById('buyMagnetBtn').onclick = () => {
+            const cost = upgrades.magnet * 100;
+            if (totalGems >= cost && upgrades.magnet < 5) {
+                totalGems -= cost;
+                upgrades.magnet++;
+                localStorage.setItem('cnb_gems', totalGems);
+                localStorage.setItem('cnb_upgrades', JSON.stringify(upgrades));
+                updateShopUI();
+            }
+        };
+
+        document.getElementById('buyShieldBtn').onclick = () => {
+            const cost = upgrades.shield * 150;
+            if (totalGems >= cost && upgrades.shield < 5) {
+                totalGems -= cost;
+                upgrades.shield++;
+                localStorage.setItem('cnb_gems', totalGems);
+                localStorage.setItem('cnb_upgrades', JSON.stringify(upgrades));
+                updateShopUI();
+            }
+        };
+
+        document.getElementById('buyDashBtn').onclick = () => {
+            const cost = upgrades.dash * 200;
+            if (totalGems >= cost && upgrades.dash < 5) {
+                totalGems -= cost;
+                upgrades.dash++;
+                localStorage.setItem('cnb_gems', totalGems);
+                localStorage.setItem('cnb_upgrades', JSON.stringify(upgrades));
+                updateShopUI();
+            }
+        };
+
+        // Audio Mute Toggle
+        document.getElementById('toggleAudioBtn').onclick = () => {
+            audio.muted = !audio.muted;
+            const icon = document.getElementById('audioIcon');
+            if (audio.muted) {
+                icon.className = 'fa-solid fa-volume-xmark text-red-400';
+            } else {
+                icon.className = 'fa-solid fa-volume-high text-cyan-400';
+            }
+        };
+
+        /* --- INITIALIZATION --- */
+        window.onload = () => {
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
